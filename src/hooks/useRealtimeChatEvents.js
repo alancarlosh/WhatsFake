@@ -21,7 +21,8 @@ export function useRealtimeChatEvents({
   replaceOnlineUsersFromSnapshot,
   upsertChatFromRealtimeUpdate,
   resolveUniqueMessageId,
-  flushOutbox
+  flushOutbox,
+  useIndexedCache = false
 }) {
   useEffect(() => {
     if (!session) {
@@ -143,7 +144,12 @@ export function useRealtimeChatEvents({
 
       if (!chatFound) {
         void fetchChats(session.token)
-          .then((serverChats) => mergePendingMessagesIntoChats(serverChats, session.userId))
+          .then((serverChats) => {
+            if (!useIndexedCache) {
+              return serverChats;
+            }
+            return mergePendingMessagesIntoChats(serverChats, session.userId);
+          })
           .then((nextChats) => {
             setChats((prev) => {
               const prevById = new Map(prev.map((chat) => [chat.id, chat]));
@@ -411,6 +417,7 @@ export function useRealtimeChatEvents({
     replaceOnlineUsersFromSnapshot,
     upsertChatFromRealtimeUpdate,
     resolveUniqueMessageId,
-    flushOutbox
+    flushOutbox,
+    useIndexedCache
   ]);
 }

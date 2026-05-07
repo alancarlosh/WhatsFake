@@ -61,7 +61,12 @@ function parseActivityMillis(chat) {
 function sortChatsByActivity(chats) {
     return [...chats].sort((left, right) => parseActivityMillis(right) - parseActivityMillis(left));
 }
+function resolvePersistenceMode() {
+    const mode = import.meta.env?.VITE_PERSISTENCE_MODE ?? 'remote';
+    return String(mode).trim().toLowerCase();
+}
 export default function App() {
+    const useIndexedCache = resolvePersistenceMode() === 'indexed';
     const { isDesktop } = useResponsiveLayout();
     const [activeTab, setActiveTab] = useState('chats');
     const [selectedChatId, setSelectedChatId] = useState(null);
@@ -344,7 +349,8 @@ export default function App() {
         replaceOnlineUsersFromSnapshot,
         upsertChatFromRealtimeUpdate,
         resolveUniqueMessageId,
-        flushOutbox
+        flushOutbox,
+        useIndexedCache
     });
     useEffect(() => {
         if (!selectedChatId || !session) {

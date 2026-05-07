@@ -9,6 +9,11 @@ import {
   saveCachedContacts
 } from '../services/localDb';
 
+function resolvePersistenceMode() {
+  const mode = import.meta.env?.VITE_PERSISTENCE_MODE ?? 'remote';
+  return String(mode).trim().toLowerCase();
+}
+
 export function useAppBootstrap({
   session,
   chats,
@@ -23,6 +28,7 @@ export function useAppBootstrap({
   upsertContacts,
   loadedMessagesRef
 }) {
+  const useIndexedCache = resolvePersistenceMode() === 'indexed';
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [isBootstrappingChats, setIsBootstrappingChats] = useState(false);
   const [chatBootstrapError, setChatBootstrapError] = useState(null);
@@ -50,6 +56,9 @@ export function useAppBootstrap({
   }, [setSession]);
 
   useEffect(() => {
+    if (!useIndexedCache) {
+      return;
+    }
     if (!session) {
       return;
     }
@@ -66,9 +75,12 @@ export function useAppBootstrap({
     return () => {
       isMounted = false;
     };
-  }, [session, setChats, setSelectedChatId, sortChatsByActivity]);
+  }, [session, setChats, setSelectedChatId, sortChatsByActivity, useIndexedCache]);
 
   useEffect(() => {
+    if (!useIndexedCache) {
+      return;
+    }
     if (!session) {
       return;
     }
@@ -84,21 +96,27 @@ export function useAppBootstrap({
     return () => {
       isMounted = false;
     };
-  }, [session, setContacts]);
+  }, [session, setContacts, useIndexedCache]);
 
   useEffect(() => {
+    if (!useIndexedCache) {
+      return;
+    }
     if (!session) {
       return;
     }
     void saveCachedChats(session.userId, chats);
-  }, [session, chats]);
+  }, [session, chats, useIndexedCache]);
 
   useEffect(() => {
+    if (!useIndexedCache) {
+      return;
+    }
     if (!session) {
       return;
     }
     void saveCachedContacts(session.userId, contacts);
-  }, [session, contacts]);
+  }, [session, contacts, useIndexedCache]);
 
   useEffect(() => {
     if (!session || chats.length === 0) {
@@ -133,7 +151,12 @@ export function useAppBootstrap({
     loadedMessagesRef.current.clear();
 
     void fetchChatsPage(session.token, { limit: 30 })
-      .then((page) => mergePendingMessagesIntoChats(page.items, session.userId))
+      .then((page) => {
+        if (!useIndexedCache) {
+          return page.items;
+        }
+        return mergePendingMessagesIntoChats(page.items, session.userId);
+      })
       .then((nextChats) => {
         setChats(sortChatsByActivity(nextChats));
         const firstChatId = nextChats[0]?.id ?? null;
@@ -146,7 +169,7 @@ export function useAppBootstrap({
       .finally(() => {
         setIsBootstrappingChats(false);
       });
-  }, [session, loadedMessagesRef, mergePendingMessagesIntoChats, setChats, setSelectedChatId, sortChatsByActivity]);
+  }, [session, loadedMessagesRef, mergePendingMessagesIntoChats, setChats, setSelectedChatId, sortChatsByActivity, useIndexedCache]);
 
   useEffect(() => {
     if (!session) {
